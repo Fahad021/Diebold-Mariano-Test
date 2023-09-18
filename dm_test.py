@@ -63,53 +63,51 @@ def dm_test(actual_lst, pred1_lst, pred2_lst, h = 1, crit="MSE", power = 2):
             msg = "The number of steps ahead is too large."
             return (rt,msg)
         # Check if criterion supported
-        if (crit != "MSE" and crit != "MAPE" and crit != "MAD" and crit != "poly"):
+        if crit not in ["MSE", "MAPE", "MAD", "poly"]:
             rt = -1
             msg = "The criterion is not supported."
-            return (rt,msg)  
+            return (rt,msg)
         # Check if every value of the input lists are numerical values
         from re import compile as re_compile
-        comp = re_compile("^\d+?\.\d+?$")  
+        comp = re_compile("^\d+?\.\d+?$")
         def compiled_regex(s):
             """ Returns True is string is a number. """
-            if comp.match(s) is None:
-                return s.isdigit()
-            return True
+            return s.isdigit() if comp.match(s) is None else True
+
         for actual, pred1, pred2 in zip(actual_lst, pred1_lst, pred2_lst):
             is_actual_ok = compiled_regex(str(abs(actual)))
             is_pred1_ok = compiled_regex(str(abs(pred1)))
             is_pred2_ok = compiled_regex(str(abs(pred2)))
-            if (not (is_actual_ok and is_pred1_ok and is_pred2_ok)):  
+            if not is_actual_ok or not is_pred1_ok or not is_pred2_ok:  
                 msg = "An element in the actual_lst, pred1_lst or pred2_lst is not numeric."
                 rt = -1
                 return (rt,msg)
         return (rt,msg)
-    
+
     # Error check
     error_code = error_check()
     # Raise error if cannot pass error check
     if (error_code[0] == -1):
         raise SyntaxError(error_code[1])
-        return
     # Import libraries
     from scipy.stats import t
     import collections
     import pandas as pd
     import numpy as np
-    
+
     # Initialise lists
     e1_lst = []
     e2_lst = []
     d_lst  = []
-    
+
     # convert every value of the lists into real values
     actual_lst = pd.Series(actual_lst).apply(lambda x: float(x)).tolist()
     pred1_lst = pd.Series(pred1_lst).apply(lambda x: float(x)).tolist()
     pred2_lst = pd.Series(pred2_lst).apply(lambda x: float(x)).tolist()
-    
+
     # Length of lists (as real numbers)
     T = float(len(actual_lst))
-    
+
     # construct d according to crit
     if (crit == "MSE"):
         for actual,p1,p2 in zip(actual_lst,pred1_lst,pred2_lst):
@@ -135,10 +133,10 @@ def dm_test(actual_lst, pred1_lst, pred2_lst, h = 1, crit="MSE", power = 2):
             e2_lst.append(((actual - p2))**(power))
         for e1, e2 in zip(e1_lst, e2_lst):
             d_lst.append(e1 - e2)    
-    
+
     # Mean of d        
     mean_d = pd.Series(d_lst).mean()
-    
+
     # Find autocovariance and construct DM test statistics
     def autocovariance(Xi, N, k, Xs):
         autoCov = 0
@@ -146,6 +144,7 @@ def dm_test(actual_lst, pred1_lst, pred2_lst, h = 1, crit="MSE", power = 2):
         for i in np.arange(0, N-k):
               autoCov += ((Xi[i+k])-Xs)*(Xi[i]-Xs)
         return (1/(T))*autoCov
+
     gamma = []
     for lag in range(0,h):
         gamma.append(autocovariance(d_lst,len(d_lst),lag,mean_d)) # 0, 1, 2
@@ -155,10 +154,10 @@ def dm_test(actual_lst, pred1_lst, pred2_lst, h = 1, crit="MSE", power = 2):
     DM_stat = harvey_adj*DM_stat
     # Find p-value
     p_value = 2*t.cdf(-abs(DM_stat), df = T - 1)
-    
+
     # Construct named tuple for return
     dm_return = collections.namedtuple('dm_return', 'DM p_value')
-    
+
     rt = dm_return(DM = DM_stat, p_value = p_value)
-    
+
     return rt
